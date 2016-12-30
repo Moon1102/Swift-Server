@@ -21,7 +21,7 @@ import PerfectLib
 import PerfectHTTP
 import PerfectHTTPServer
 #if os(Linux)
-    import Glibc
+    import SwiftGlibc
 #else
     import Cocoa
 #endif
