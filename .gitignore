@@ -1,0 +1,5 @@
+# 忽略
+*.[oa]
+.swift-version
+.build
+/Packages
