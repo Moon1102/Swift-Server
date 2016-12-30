@@ -9,6 +9,7 @@
 import MongoDB
 #if os(Linux)
     import SwiftGlibc
+    import CoreFoundation
 #else
     import Cocoa
 #endif
