@@ -48,11 +48,12 @@ func doMongoDB(code:(_ collection:MongoCollection) throws -> Void)
     }
 }
 
-func timerTask(with timeInterval:UInt32,code:@escaping ()->Void)
-{
-    DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
-        code()
-        sleep(timeInterval)
-        timerTask(with: timeInterval, code: code)
-    }
-}
+//func timerTask(with timeInterval:UInt32,code:@escaping ()->Void)
+//{
+//    DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
+//        code()
+//        sleep(timeInterval)
+//        timerTask(with: timeInterval, code: code)
+//    }
+//    
+//}
