@@ -8,10 +8,9 @@
 
 #if os(Linux)
     import SwiftGlibc
-#else
-    import Foundation
 #endif
 
+import Foundation
 import MongoDB
 import PerfectLogger
 import PerfectThread

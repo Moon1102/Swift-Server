@@ -28,11 +28,11 @@ func doMongoDB(code:(_ collection:MongoCollection) throws -> Void)
     do
     {
         let client = try! MongoClient(uri: "mongodb://localhost:27017")
-        
+        debugPrint("\(client)")
         let db = client.getDatabase(name: "test")
-        
+        debugPrint("\(db)")
         guard let collection = db.getCollection(name: "movie-data") else { return }
-        
+        debugPrint("\(collection)")
         try code(collection)
         
         defer

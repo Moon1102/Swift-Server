@@ -248,31 +248,26 @@ struct RouteHandler
     //MARK:获取页面展示数据
     private func dataHandler(request:HTTPRequest,_ response:HTTPResponse)
     {
-        var isNeedQuery = false
-
         serverPush.shared.beginPush()
         
         doMongoDB
         {
             //有数据就直接拿
-            isNeedQuery = $0.find()?.reversed().count ?? 0 > 0
+            if  $0.find()?.reversed().count ?? 0 > 0
+            {
+                debugPrint("直接获取数据")
+            }
+            else
+            {
+                //没有就取一下
+                let crawler = myCrawler(url:"https://movie.douban.com/")
+                
+                crawler.start()
+                
+                debugPrint("重新获取数据")
+            }
             
-             debugPrint("直接获取数据")
-        }
-        
-        //没有就取一下
-        if !isNeedQuery
-        {
-            let crawler = myCrawler(url:"https://movie.douban.com/")
-            
-            crawler.start()
-            
-            debugPrint("重新获取数据")
-        }
-        
-        //组合数据
-        doMongoDB{
-            
+            //组合数据
             while $0.find()?.reversed().count ?? 0 == 10
             {
                 var results = "{"
