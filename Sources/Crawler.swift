@@ -8,13 +8,10 @@
 
 #if os(Linux)
     import SwiftGlibc
-    import Foundation
-#else
-    import Cocoa
-    import PerfectThread
 #endif
 
-
+import Foundation
+import PerfectThread
 import MongoDB
 import PerfectLogger
 
@@ -41,30 +38,25 @@ struct myCrawler
     
     private func setUp(urlString:String) throws ->[String]
     {
-        var URLArray = [String]()
-        
         if let url = URL(string:urlString)
         {
             debugPrint("开始获取url")
-            let scanner = Scanner(string: try String(contentsOf:url))
             
-            while !scanner.isAtEnd
-            {
-                URLArray.append(scanWith(head:"{from:'mv_rk'})\" href=\"",foot:"\">",scanner:scanner))
-            }
-            
+            let URLArray = scanWith(data:try String(contentsOf:url),head:"{from:'mv_rk'})\" href=\"",foot:"\">")
+
             if URLArray.count == 0
             {
                 throw crawlerError(msg:"数据初始化失败")
             }
             
             debugPrint("获取url结束")
+            
+            return URLArray
         }
         else
         {
             throw crawlerError(msg:"查询URL初始化失败")
         }
-        return URLArray.filter{$0.characters.count > 0}
     }
     
     private func handleData(data:[String]) throws
@@ -76,16 +68,16 @@ struct myCrawler
         for case let url in data.map({ URL(string:$0) })
         {
             guard let _ = url else { throw crawlerError(msg:"数据\(index)初始化失败") }
-
-            Threading.getQueue(name: "sync", type: .serial).dispatch
-            {
-                do
-                {
-                    let scanner = Scanner(string: try String(contentsOf:url!))
+            
+            Threading.getQueue(name: "sync", type: .serial).dispatch{
+                
+                do{
+                    let data = try String(contentsOf:url!)
+                    
                     var (head,foot) = ("data-name=",".jpg")
                     
                     //电影模型
-                    var tempStr = (head + self.scanWith(head:head,foot:foot,scanner:scanner) + foot).components(separatedBy: "data-").map{
+                    var tempStr = (head + self.scanWith(data:data, head: head, foot: foot).first! + foot).components(separatedBy: "data-").map{
                         "\"\($0)".replacingOccurrences(of: "=", with: "\":").trim(string:" ")
                     }
                     
@@ -112,29 +104,29 @@ struct myCrawler
                     
                     (head,foot) = try String(contentsOf:url!).contains(string: "<span class=\"all hidden\">") ? ("<span class=\"all hidden\">","</span>") : ("<span property=\"v:summary\" class=\"\">","</span>")
                     
-                    _ = self.scanWith(head:head,foot:foot,scanner:scanner).components(separatedBy: "<br />").map{
+                    _ = self.scanWith(data:data,head:head,foot:foot).first!.components(separatedBy: "<br />").map{
                         intro += $0.trimmingCharacters(in: .whitespacesAndNewlines)
                     }
                     
                     
-                    doMongoDB
+                    doMongoDB{
+                        
+                        let selector = try BSON(json:"{\"id\":\(id)}")
+                        //数据已满
+                        if let count = $0.find()?.reversed().count,count > 9
                         {
-                            let selector = try BSON(json:"{\"id\":\(id)}")
-                            //数据已满
-                            if let count = $0.find()?.reversed().count,count > 9
+                            for x in $0.find(query: selector)!
                             {
-                                for x in $0.find(query: selector)!
-                                {
-                                    if x.asString.isEmpty { serverPush.shared.beginPush() }
-                                }
+                                if x.asString.isEmpty { serverPush.shared.beginPush() }
                             }
-                            else
+                        }
+                        else
+                        {
+                            if case .success = $0.update(selector: selector, update: try BSON(json: "{\"id\":\(id),\"content\":{\(content)},\"intro\":\"\(intro)\"}"), flag: .upsert) {} else
                             {
-                                if case .success = $0.update(selector: selector, update: try BSON(json: "{\"id\":\(id),\"content\":{\(content)},\"intro\":\"\(intro)\"}"), flag: .upsert) {} else
-                                {
-                                    throw crawlerError(msg: "数据保存有误")
-                                }
+                                throw crawlerError(msg: "数据保存有误")
                             }
+                        }
                     }
                 }
                 catch
@@ -143,88 +135,15 @@ struct myCrawler
                 }
             }
             index += 1
-
-            }
-            
-//            DispatchQueue.global().sync
-//            {
-//                do
-//                {
-//                    let scanner = Scanner(string: try String(contentsOf:url!))
-//                    var (head,foot) = ("data-name=",".jpg")
-//                    
-//                    //电影模型
-//                    var tempStr = (head + self.scanWith(head:head,foot:foot,scanner:scanner) + foot).components(separatedBy: "data-").map{
-//                        "\"\($0)".replacingOccurrences(of: "=", with: "\":").trim(string:" ")
-//                    }
-//                    
-//                    tempStr.removeFirst()
-//                    
-//                    var content = ""
-//                    
-//                    _ = tempStr.map{ content += "\($0),\n" }
-//                    
-//                    var id = 0
-//                    
-//                    for str in tempStr
-//                    {
-//                        if str.contains("href")
-//                        {
-//                            id = Int(str.components(separatedBy: ":").last!.components(separatedBy: "/").dropLast().last!)!
-//                        }
-//                    }
-//                    
-//                    content = content.replace(of: ",", with: "\"")
-//                    
-//                    //电影简介
-//                    var intro = ""
-//                    
-//                    (head,foot) = try String(contentsOf:url!).contains(string: "<span class=\"all hidden\">") ? ("<span class=\"all hidden\">","</span>") : ("<span property=\"v:summary\" class=\"\">","</span>")
-//                    
-//                    _ = self.scanWith(head:head,foot:foot,scanner:scanner).components(separatedBy: "<br />").map{
-//                        intro += $0.trimmingCharacters(in: .whitespacesAndNewlines)
-//                    }
-//                    
-//                    
-//                    doMongoDB
-//                        {
-//                            let selector = try BSON(json:"{\"id\":\(id)}")
-//                            //数据已满
-//                            if let count = $0.find()?.reversed().count,count > 9
-//                            {
-//                                for x in $0.find(query: selector)!
-//                                {
-//                                    if x.asString.isEmpty { serverPush.shared.beginPush() }
-//                                }
-//                            }
-//                            else
-//                            {
-//                                if case .success = $0.update(selector: selector, update: try BSON(json: "{\"id\":\(id),\"content\":{\(content)},\"intro\":\"\(intro)\"}"), flag: .upsert) {} else
-//                                {
-//                                    throw crawlerError(msg: "数据保存有误")
-//                                }
-//                            }
-//                    }
-//                }
-//                catch
-//                {
-//                    debugPrint(error)
-//                }
-//            }
-//            index += 1
-//        }
-        
-        debugPrint("获取信息结束")
+            if index == data.count - 1 { debugPrint("获取信息结束") }
+        }
     }
     
-    private func scanWith(head:String,foot:String,scanner:Scanner)->String
+    private func scanWith(data:String,head:String,foot:String)->[String]
     {
-        var str:NSString?
-        
-        scanner.scanUpTo(head, into: nil)
-        scanner.scanUpTo(foot, into: &str)
-        
-        return str == nil ? "" : str!.replacingOccurrences(of: head, with: "")
+        var temp = data.components(separatedBy: head)
+        temp.removeFirst()
+        return temp.map{ $0.components(separatedBy: foot).first ?? "" }
     }
 }
 
