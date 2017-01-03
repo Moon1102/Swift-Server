@@ -8,7 +8,7 @@
 
 #if os(Linux)
     import SwiftGlibc
-    import CoreFoundation
+    import Foundation
 #else
     import Cocoa
 #endif
@@ -112,7 +112,7 @@ struct myCrawler
                     (head,foot) = try String(contentsOf:url!).contains(string: "<span class=\"all hidden\">") ? ("<span class=\"all hidden\">","</span>") : ("<span property=\"v:summary\" class=\"\">","</span>")
                     
                     _ = self.scanWith(head:head,foot:foot,scanner:scanner).components(separatedBy: "<br />").map{
-                        intro += $0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                        intro += $0.trimmingCharacters(in: .whitespacesAndNewlines)
                     }
                     
                     
@@ -164,11 +164,11 @@ extension String
 {
     func trim(string:String) -> String
     {
-        return self == "" ? "" : self.trimmingCharacters(in: CharacterSet(charactersIn:string))
+        return self == "" ? "" : trimmingCharacters(in: CharacterSet(charactersIn:string))
     }
     func replace(of pre:String,with next:String)->String
     {
-        return replacingOccurrences(of: pre, with: next, options: String.CompareOptions.backwards, range: index(endIndex, offsetBy: -2)..<endIndex)
+        return replacingOccurrences(of: pre, with: next, options: .backwards, range: index(endIndex, offsetBy: -2)..<endIndex)
     }
 }
 
