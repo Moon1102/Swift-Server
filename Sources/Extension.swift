@@ -27,17 +27,12 @@ func doMongoDB(code:(_ collection:MongoCollection) throws -> Void)
 {
     do
     {
-        #if os(Linux)
-            let client = try! MongoClient(uri: "mongodb://10.44.183.109:27017")
-        #else
-            let client = try! MongoClient(uri: "mongodb://localhost:27017")
-        #endif
+        let client = try! MongoClient(uri: "mongodb://localhost:27017")
     
-        debugPrint("\(client.databaseNames())")
+        guard client.databaseNames().count > 0 else{throw crawlerError(msg:"数据库缺少表")}
+        
         let db = client.getDatabase(name: "test")
-        debugPrint("\(db.collectionNames())")
         guard let collection = db.getCollection(name: "movie-data") else { return }
-        debugPrint("\(collection)")
         try code(collection)
         
         defer

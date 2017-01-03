@@ -267,10 +267,11 @@ struct RouteHandler
                 debugPrint("重新获取数据")
             }
             
+            var results = "{"
+            
             //组合数据
             while $0.find()?.reversed().count ?? 0 == 10
             {
-                var results = "{"
                 var index = 0
                 
                 for x in $0.find()!
@@ -279,11 +280,11 @@ struct RouteHandler
                     index += 1
                 }
                 
-                response.appendBody(string: results.replace(of: ",", with: "}"))
-                response.completed()
-                
-                return
+                break
             }
+            
+            response.appendBody(string: results.replace(of: ",", with: "}"))
+            response.completed()
         }
     }
 }
