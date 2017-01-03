@@ -27,10 +27,15 @@ func doMongoDB(code:(_ collection:MongoCollection) throws -> Void)
 {
     do
     {
-        let client = try! MongoClient(uri: "mongodb://localhost:27017")
-        debugPrint("\(client)")
+        #if os(Linux)
+            let client = try! MongoClient(uri: "mongodb://10.44.183.109:27017")
+        #else
+            let client = try! MongoClient(uri: "mongodb://localhost:27017")
+        #endif
+    
+        debugPrint("\(client.databaseNames())")
         let db = client.getDatabase(name: "test")
-        debugPrint("\(db)")
+        debugPrint("\(db.collectionNames())")
         guard let collection = db.getCollection(name: "movie-data") else { return }
         debugPrint("\(collection)")
         try code(collection)

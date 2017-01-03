@@ -1,5 +1,10 @@
 # 忽略
+
 *.[oa]
+*.xc
+
 .swift-version
 .build
+.plist
+
 /Packages
