@@ -20,11 +20,11 @@
 import PerfectLib
 import PerfectHTTP
 import PerfectHTTPServer
+
 #if os(Linux)
     import SwiftGlibc
-    import Foundation
 #else
-    import Cocoa
+    import Darwin
 #endif
 
 // Create HTTP server.

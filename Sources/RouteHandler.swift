@@ -249,36 +249,46 @@ struct RouteHandler
     private func dataHandler(request:HTTPRequest,_ response:HTTPResponse)
     {
         var isNeedQuery = false
-        var results = "{"
-        
+
         serverPush.shared.beginPush()
         
         doMongoDB
         {
             //有数据就直接拿
             isNeedQuery = $0.find()?.reversed().count ?? 0 > 0
+            
+             debugPrint("直接获取数据")
         }
         
         //没有就取一下
         if !isNeedQuery
         {
-            var crawler = myCrawler(url:"https://movie.douban.com/")
+            let crawler = myCrawler(url:"https://movie.douban.com/")
+            
             crawler.start()
+            
+            debugPrint("重新获取数据")
         }
         
         //组合数据
-        doMongoDB
-        {
-            var index = 0
-            for x in $0.find()!
+        doMongoDB{
+            
+            while $0.find()?.reversed().count ?? 0 == 10
             {
-                results += "\"\(index)\":\(x.asString),"
-                index += 1
+                var results = "{"
+                var index = 0
+                
+                for x in $0.find()!
+                {
+                    results += "\"\(index)\":\(x.asString),"
+                    index += 1
+                }
+                
+                response.appendBody(string: results.replace(of: ",", with: "}"))
+                response.completed()
+                
+                return
             }
-            results = results.replace(of: ",", with: "}")
         }
-    
-        response.appendBody(string: results)
-        response.completed()
     }
 }
