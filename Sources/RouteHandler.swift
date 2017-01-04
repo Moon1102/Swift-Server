@@ -251,46 +251,44 @@ struct RouteHandler
     {
         //        serverPush.shared.beginPush()
         
-        let lock = Threading.RWLock()
         
-        doMongoDB { collect in
+        var results = "{"
+
+        let code = {
             
-            var results = "{"
-            
-            let code = { (collect:MongoCollection) in
+            doMongoDB{
                 
                 var index = 0
                 
-                for x in collect.find()!
+                for x in $0.find()!
                 {
                     results += "\"\(index)\":\(x.asString),"
                     
                     index += 1
                 }
-                response.appendBody(string: results == "{" ? "" : results.replace(of: ",", with: "}"))
+                results == "{" ? results = "" : results.characters.removeLast(1)
+                response.appendBody(string: results)
                 response.completed()
             }
-            
-            //有数据就直接拿
-            if  collect.find()?.reversed().count ?? 0 > 0
+        }
+        var canOutput = false
+        
+        doMongoDB{ canOutput = $0.find()?.reversed().count ?? 0 > 0}
+        
+        //有数据就直接拿
+            if canOutput
             {
                 debugPrint("直接获取数据")
                 
-                code(collect)
+                code()
             }
             else
             {
                 //没有就取一下
-                let crawler = myCrawler(url:"https://movie.douban.com/")
-                
-                lock.doWithWriteLock {
-                    crawler.start(){
-                        code($0)
-                    }
-                }
-                
                 debugPrint("重新获取数据")
+                
+                var crawler = myCrawler(url:"https://movie.douban.com/")
+                crawler.start(){ code() }
             }
         }
-    }
 }

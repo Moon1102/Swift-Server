@@ -25,79 +25,15 @@ struct myCrawler
         self.url = url
     }
     
-    internal func start(_ handle:@escaping (_ collect:MongoCollection)->Void = {_ in })
+    internal func start(_ handle:@escaping ()->Void = {})
     {
-        setUp(urlString: url){
-
-            if $0.count == 0
-            {
-                throw crawlerError(msg:"数据初始化失败")
-            }
-            
-            self.handleData(data: $0){
-                
-                data in
-                
-                var (head,foot) = ("data-name=",".jpg")
-                
-                //电影模型
-                var tempStr = (head + self.scanWith(data:data, head: head, foot: foot).first! + foot).components(separatedBy: "data-").map{
-                    "\"\($0)".replacingOccurrences(of: "=", with: "\":").trim(string:" ")
-                }
-                
-                tempStr.removeFirst()
-                
-                var content = ""
-                
-                _ = tempStr.map{ content += "\($0),\n" }
-                
-                var id = 0
-                
-                for str in tempStr
-                {
-                    if str.contains("href")
-                    {
-                        id = Int(str.components(separatedBy: ":").last!.components(separatedBy: "/").dropLast().last!)!
-                    }
-                }
-                
-                content = content.replace(of: ",", with: "\"")
-                
-                //电影简介
-                var intro = ""
-                
-                (head,foot) = data.contains(string: "<span class=\"all hidden\">") ? ("<span class=\"all hidden\">","</span>") : ("<span property=\"v:summary\" class=\"\">","</span>")
-                
-                _ = self.scanWith(data:data,head:head,foot:foot).first!.components(separatedBy: "<br />").map{
-                    intro += $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                }
-                
-                
-                doMongoDB{
-                    
-                    let selector = try BSON(json:"{\"id\":\(id)}")
-                    
-                    if case .success = $0.update(selector: selector, update: try BSON(json: "{\"id\":\(id),\"content\":{\(content)},\"intro\":\"\(intro)\"}"), flag: .upsert) {} else
-                    {
-                        throw crawlerError(msg: "数据保存有误")
-                    }
-        
-                    //数据已满
-                    if let count = $0.find()?.reversed().count,count > 9
-                    {
-                        for x in $0.find(query: selector)!
-                        {
-                            if x.asString.isEmpty { serverPush.shared.beginPush() }
-                        }
-                        
-                        handle($0)
-                    }
-                }
-            }
+        setUp(urlString: url)
+        {
+            self.handleData(data:self.scanWith(data:$0,head:"{from:'mv_rk'})\" href=\"",foot:"\">"),handle)
         }
     }
     
-    private func setUp(urlString:String,handle:@escaping (_ URLArray:[String]) throws ->Void = {_ in })
+    private func setUp(urlString:String,_ handle:@escaping (_ data:String)->Void = {_ in})
     {
         CURL(url: urlString).perform{
             
@@ -106,26 +42,18 @@ struct myCrawler
             if let data = String(bytes: body, encoding: .utf8)
             {
                 debugPrint("开始获取url")
-            
-                do
-                {
-                    debugPrint("获取url结束")
-                    try handle(self.scanWith(data:data,head:"{from:'mv_rk'})\" href=\"",foot:"\">"))
-                }
-                catch
-                {
-                    print(error)
-                }
+
+                handle(data)
             }
+            
+            debugPrint("获取url结束")
         }
     }
     
-    private func handleData(data:[String],handle:@escaping (_ data:String)->Void = {_ in })
+    private func handleData(data:[String],_ handle:@escaping ()->Void = {})
     {
         debugPrint("开始获取信息")
         
-        var index = 0
-
         for url in data.map({ CURL(url:$0) })
         {
             url.perform{
@@ -134,11 +62,64 @@ struct myCrawler
                 
                 if let data = String(bytes: body, encoding: .utf8)
                 {
-                    handle(data)
+                    var (head,foot) = ("data-name=",".jpg")
+                    
+                    //电影模型
+                    var tempStr = (head + self.scanWith(data:data, head: head, foot: foot).first! + foot).components(separatedBy: "data-").map{
+                        "\"\($0)".replacingOccurrences(of: "=", with: "\":").trim(string:" ")
+                    }
+                    
+                    tempStr.removeFirst()
+                    
+                    var content = ""
+                    
+                    _ = tempStr.map{ content += "\($0),\n" }
+                    
+                    var id = 0
+                    
+                    for str in tempStr
+                    {
+                        if str.contains("href")
+                        {
+                            id = Int(str.components(separatedBy: ":").last!.components(separatedBy: "/").dropLast().last!)!
+                        }
+                    }
+                    
+                    content.characters.removeLast(2)
+                    content.append("\"")
+                    
+                    //电影简介
+                    var intro = ""
+                    
+                    (head,foot) = data.contains(string: "<span class=\"all hidden\">") ? ("<span class=\"all hidden\">","</span>") : ("<span property=\"v:summary\" class=\"\">","</span>")
+                    
+                    _ = self.scanWith(data:data,head:head,foot:foot).first!.components(separatedBy: "<br />").map{
+                        intro += $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+
+                    doMongoDB{
+                        
+                        let selector = try BSON(json:"{\"id\":\(id)}")
+                        
+                        if case .success = $0.update(selector: selector, update: try BSON(json: "{\"id\":\(id),\"content\":{\(content)},\"intro\":\"\(intro)\"}"), flag: .upsert) {} else
+                        {
+                            throw crawlerError(msg: "数据保存有误")
+                        }
+                        
+                        //数据已满
+                        if let count = $0.find()?.reversed().count,count > 9
+                        {
+                            for x in $0.find(query: selector)!
+                            {
+                                if x.asString.isEmpty { serverPush.shared.beginPush() }
+                            }
+                            debugPrint("获取信息结束")
+                            
+                            handle()
+                        }
+                    }
                 }
             }
-            index += 1
-            if index == data.count - 1 { debugPrint("获取信息结束") }
         }
     }
     
