@@ -25,7 +25,7 @@ struct myCrawler
         self.url = url
     }
     
-    internal func start()
+    internal func start(_ handle:@escaping (_ collect:MongoCollection)->Void = {_ in })
     {
         setUp(urlString: url){
 
@@ -76,6 +76,12 @@ struct myCrawler
                 doMongoDB{
                     
                     let selector = try BSON(json:"{\"id\":\(id)}")
+                    
+                    if case .success = $0.update(selector: selector, update: try BSON(json: "{\"id\":\(id),\"content\":{\(content)},\"intro\":\"\(intro)\"}"), flag: .upsert) {} else
+                    {
+                        throw crawlerError(msg: "数据保存有误")
+                    }
+        
                     //数据已满
                     if let count = $0.find()?.reversed().count,count > 9
                     {
@@ -83,13 +89,8 @@ struct myCrawler
                         {
                             if x.asString.isEmpty { serverPush.shared.beginPush() }
                         }
-                    }
-                    else
-                    {
-                        if case .success = $0.update(selector: selector, update: try BSON(json: "{\"id\":\(id),\"content\":{\(content)},\"intro\":\"\(intro)\"}"), flag: .upsert) {} else
-                        {
-                            throw crawlerError(msg: "数据保存有误")
-                        }
+                        
+                        handle($0)
                     }
                 }
             }
@@ -108,14 +109,13 @@ struct myCrawler
             
                 do
                 {
+                    debugPrint("获取url结束")
                     try handle(self.scanWith(data:data,head:"{from:'mv_rk'})\" href=\"",foot:"\">"))
                 }
                 catch
                 {
                     print(error)
                 }
-                
-                debugPrint("获取url结束")
             }
         }
     }

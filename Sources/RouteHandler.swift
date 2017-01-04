@@ -10,6 +10,7 @@ import PerfectHTTP
 import PerfectHTTPServer
 import MongoDB
 import Foundation
+import PerfectThread
 
 struct RouteHandler
 {
@@ -248,43 +249,48 @@ struct RouteHandler
     //MARK:获取页面展示数据
     private func dataHandler(request:HTTPRequest,_ response:HTTPResponse)
     {
-        serverPush.shared.beginPush()
+        //        serverPush.shared.beginPush()
         
-        doMongoDB
-        {
+        let lock = Threading.RWLock()
+        
+        doMongoDB { collect in
+            
+            var results = "{"
+            
+            let code = { (collect:MongoCollection) in
+                
+                var index = 0
+                
+                for x in collect.find()!
+                {
+                    results += "\"\(index)\":\(x.asString),"
+                    
+                    index += 1
+                }
+                response.appendBody(string: results == "{" ? "" : results.replace(of: ",", with: "}"))
+                response.completed()
+            }
+            
             //有数据就直接拿
-            if  $0.find()?.reversed().count ?? 0 > 0
+            if  collect.find()?.reversed().count ?? 0 > 0
             {
                 debugPrint("直接获取数据")
+                
+                code(collect)
             }
             else
             {
                 //没有就取一下
                 let crawler = myCrawler(url:"https://movie.douban.com/")
                 
-                crawler.start()
+                lock.doWithWriteLock {
+                    crawler.start(){
+                        code($0)
+                    }
+                }
                 
                 debugPrint("重新获取数据")
             }
-            
-            var results = "{"
-            
-            //组合数据
-            while $0.find()?.reversed().count ?? 0 == 10
-            {
-                var index = 0
-                
-                for x in $0.find()!
-                {
-                    results += "\"\(index)\":\(x.asString),"
-                    index += 1
-                }
-                
-                break
-            }
-            
-            response.appendBody(string: results.replace(of: ",", with: "}"))
-            response.completed()
         }
     }
 }
