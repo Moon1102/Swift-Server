@@ -8,9 +8,11 @@
 
 import PerfectHTTP
 import PerfectHTTPServer
+import PerfectLib
+import PerfectThread
+
 import MongoDB
 import Foundation
-import PerfectThread
 
 struct RouteHandler
 {
@@ -35,6 +37,8 @@ struct RouteHandler
             routes.add(method: .post, uri: "/logout", handler: logoutHandler)
             routes.add(method: .post, uri: "/regist", handler: registHandler)
             routes.add(method: .post, uri: "/login", handler: loginHandler)
+            
+            routes.add(method: .get, uri: "/movie", handler: movieHandler)
             
             return routes
         }
@@ -253,7 +257,7 @@ struct RouteHandler
         
         
         var results = "{"
-
+        
         let code = {
             
             doMongoDB{
@@ -276,19 +280,32 @@ struct RouteHandler
         doMongoDB{ canOutput = $0.find()?.reversed().count ?? 0 > 0}
         
         //有数据就直接拿
-            if canOutput
-            {
-                debugPrint("直接获取数据")
-                
-                code()
-            }
-            else
-            {
-                //没有就取一下
-                debugPrint("重新获取数据")
-                
-                var crawler = myCrawler(url:"https://movie.douban.com/")
-                crawler.start(){ code() }
-            }
+        if canOutput
+        {
+            debugPrint("直接获取数据")
+            
+            code()
         }
+        else
+        {
+            //没有就取一下
+            debugPrint("重新获取数据")
+            
+            let crawler = myCrawler(url:"https://movie.douban.com/")
+            crawler.start(){ code() }
+        }
+    }
+    
+    //播放服务器内视频
+    private func movieHandler(request:HTTPRequest,_ response:HTTPResponse)
+    {
+        let dir = Dir("./webroot")
+        if dir.exists
+        {
+            print(dir.path)
+        }
+        
+        response.appendBody(string: "<html><title>Hello, world!</title><body>Hello, world!</body></html>")
+        response.completed()
+    }
 }

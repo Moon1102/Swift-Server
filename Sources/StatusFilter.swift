@@ -7,6 +7,9 @@
 //
 import PerfectHTTP
 import PerfectHTTPServer
+import PerfectLib
+
+import Foundation
 
 struct Filter: HTTPResponseFilter
 {
@@ -20,7 +23,15 @@ struct Filter: HTTPResponseFilter
         if case .notFound = response.status
         {
             response.bodyBytes.removeAll()
-            response.setBody(string: "\(response.request.path) is not found.")
+            
+            var body = "\(response.request.path) is not found."
+
+            if let data = FileManager.default.contents(atPath:"./webroot/Html/pnf.html")
+            {
+                body = String(data: data, encoding: .utf8) ?? body
+            }
+            
+            response.setBody(string: body)
             response.setHeader(.contentLength, value: "\(response.bodyBytes.count)")
             callback(.done)
         }
